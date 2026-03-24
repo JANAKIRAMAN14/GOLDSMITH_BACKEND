@@ -1,0 +1,42 @@
+{
+  "name": "goldsmith-backend",
+  "version": "1.0.0",
+  "description": "GoldSmith backend API using Fastify + TypeScript + MongoDB",
+  "main": "dist/server.js",
+  "type": "commonjs",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "dev:nodemon": "nodemon --watch src --ext ts --exec \"tsx src/server.ts\"",
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/server.js",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": [
+    "fastify",
+    "typescript",
+    "mongodb",
+    "mongoose"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@fastify/cookie": "^11.0.2",
+    "@fastify/cors": "^10.0.1",
+    "@fastify/helmet": "^13.0.2",
+    "@fastify/jwt": "^9.0.1",
+    "@fastify/multipart": "^9.0.3",
+    "@fastify/rate-limit": "^10.3.0",
+    "bcryptjs": "^2.4.3",
+    "cloudinary": "^2.5.1",
+    "dotenv": "^16.4.5",
+    "fastify": "^5.0.0",
+    "mongoose": "^8.7.2"
+  },
+  "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
+    "@types/node": "^22.8.1",
+    "nodemon": "^3.1.7",
+    "tsx": "^4.19.1",
+    "typescript": "^5.6.3"
+  }
+}
