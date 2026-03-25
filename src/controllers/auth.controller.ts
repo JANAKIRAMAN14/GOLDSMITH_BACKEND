@@ -14,6 +14,19 @@ function refreshExpiryDate(): Date {
   return new Date(now + env.REFRESH_TOKEN_TTL_DAYS * 24 * 60 * 60 * 1000);
 }
 
+function getRefreshCookieOptions(includeMaxAge = true) {
+  const secure = env.NODE_ENV === 'production' || env.COOKIE_SECURE;
+  const sameSite = secure ? 'none' : 'lax';
+
+  return {
+    httpOnly: true,
+    secure,
+    sameSite,
+    path: '/api/auth',
+    ...(includeMaxAge ? { maxAge: env.REFRESH_TOKEN_TTL_DAYS * 24 * 60 * 60 } : {})
+  } as const;
+}
+
 async function issueSession(reply: FastifyReply, user: { _id: unknown; email: string }) {
   const accessToken = await reply.jwtSign(
     { userId: String(user._id), email: user.email, tokenType: 'access' },
@@ -33,13 +46,7 @@ async function issueSession(reply: FastifyReply, user: { _id: unknown; email: st
     refreshTokenExpiresAt
   });
 
-  reply.setCookie('refreshToken', refreshToken, {
-    httpOnly: true,
-    secure: env.COOKIE_SECURE,
-    sameSite: 'lax',
-    path: '/api/auth',
-    maxAge: env.REFRESH_TOKEN_TTL_DAYS * 24 * 60 * 60
-  });
+  reply.setCookie('refreshToken', refreshToken, getRefreshCookieOptions(true));
 
   return accessToken;
 }
@@ -191,7 +198,7 @@ export async function logoutController(request: FastifyRequest, reply: FastifyRe
     }
   }
 
-  reply.clearCookie('refreshToken', { path: '/api/auth' });
+  reply.clearCookie('refreshToken', getRefreshCookieOptions(false));
   return reply.send({ message: 'Logged out.' });
 }
 

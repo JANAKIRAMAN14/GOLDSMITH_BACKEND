@@ -22,16 +22,26 @@ async function createRecordController(request, reply) {
     if (!request.isMultipart()) {
         return reply.status(400).send({ message: 'Use multipart/form-data.' });
     }
-    const data = await request.file();
-    const fields = (data?.fields || {});
-    const customerName = (0, validate_1.sanitizeText)(fields.customerName?.value, 100);
-    const itemName = (0, validate_1.sanitizeText)(fields.itemName?.value, 100);
-    const weight = Number(fields.weight?.value || 0);
-    const stoneSize = (0, validate_1.sanitizeText)(fields.stoneSize?.value, 80);
-    const status = normalizeStatus(fields.status?.value);
-    const other = (0, validate_1.sanitizeText)(fields.other?.value, 500);
-    const givenDate = fields.givenDate?.value;
-    const deliveryDate = fields.deliveryDate?.value;
+    const fields = {};
+    let itemImageBuffer = null;
+    for await (const part of request.parts()) {
+        if (part.type === 'file') {
+            const buffer = await part.toBuffer();
+            if (part.fieldname === 'itemImage' && buffer.length > 0) {
+                itemImageBuffer = buffer;
+            }
+            continue;
+        }
+        fields[part.fieldname] = String(part.value ?? '');
+    }
+    const customerName = (0, validate_1.sanitizeText)(fields.customerName, 100);
+    const itemName = (0, validate_1.sanitizeText)(fields.itemName, 100);
+    const weight = Number(fields.weight || 0);
+    const stoneSize = (0, validate_1.sanitizeText)(fields.stoneSize, 80);
+    const status = normalizeStatus(fields.status);
+    const other = (0, validate_1.sanitizeText)(fields.other, 500);
+    const givenDate = fields.givenDate;
+    const deliveryDate = fields.deliveryDate;
     if (!customerName || !itemName || !Number.isFinite(weight) || weight <= 0 || !givenDate || !deliveryDate) {
         return reply.status(400).send({ message: 'Missing required record fields.' });
     }
@@ -39,11 +49,8 @@ async function createRecordController(request, reply) {
         return reply.status(400).send({ message: 'Set today gold rate first.' });
     }
     let itemImageUrl = '';
-    if (data && data.file) {
-        const buffer = await data.toBuffer();
-        if (buffer.length > 0) {
-            itemImageUrl = await (0, cloudinary_service_1.uploadImageBuffer)(buffer);
-        }
+    if (itemImageBuffer) {
+        itemImageUrl = await (0, cloudinary_service_1.uploadImageBuffer)(itemImageBuffer);
     }
     const totalAmount = Number((user.todayGoldRate * weight).toFixed(2));
     const record = await Record_1.RecordModel.create({
