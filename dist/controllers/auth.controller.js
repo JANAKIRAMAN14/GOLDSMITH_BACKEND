@@ -20,6 +20,17 @@ function refreshExpiryDate() {
     const now = Date.now();
     return new Date(now + env_1.env.REFRESH_TOKEN_TTL_DAYS * 24 * 60 * 60 * 1000);
 }
+function getRefreshCookieOptions(includeMaxAge = true) {
+    const secure = env_1.env.NODE_ENV === 'production' || env_1.env.COOKIE_SECURE;
+    const sameSite = secure ? 'none' : 'lax';
+    return {
+        httpOnly: true,
+        secure,
+        sameSite,
+        path: '/api/auth',
+        ...(includeMaxAge ? { maxAge: env_1.env.REFRESH_TOKEN_TTL_DAYS * 24 * 60 * 60 } : {})
+    };
+}
 async function issueSession(reply, user) {
     const accessToken = await reply.jwtSign({ userId: String(user._id), email: user.email, tokenType: 'access' }, { expiresIn: env_1.env.ACCESS_TOKEN_TTL });
     const refreshToken = await reply.jwtSign({ userId: String(user._id), email: user.email, tokenType: 'refresh' }, { expiresIn: `${env_1.env.REFRESH_TOKEN_TTL_DAYS}d` });
@@ -29,13 +40,7 @@ async function issueSession(reply, user) {
         refreshTokenHash,
         refreshTokenExpiresAt
     });
-    reply.setCookie('refreshToken', refreshToken, {
-        httpOnly: true,
-        secure: env_1.env.COOKIE_SECURE,
-        sameSite: 'lax',
-        path: '/api/auth',
-        maxAge: env_1.env.REFRESH_TOKEN_TTL_DAYS * 24 * 60 * 60
-    });
+    reply.setCookie('refreshToken', refreshToken, getRefreshCookieOptions(true));
     return accessToken;
 }
 async function signupController(request, reply) {
@@ -153,7 +158,7 @@ async function logoutController(request, reply) {
             // Intentionally ignore invalid token during logout.
         }
     }
-    reply.clearCookie('refreshToken', { path: '/api/auth' });
+    reply.clearCookie('refreshToken', getRefreshCookieOptions(false));
     return reply.send({ message: 'Logged out.' });
 }
 async function meController(request, reply) {
