@@ -100,21 +100,28 @@ export async function buildApp() {
     logger: {
       level: env.NODE_ENV === 'production' ? 'info' : 'debug',
       redact: {
-        paths: ['req.headers.authorization', 'req.headers.cookie', 'res.headers["set-cookie"]'],
+        paths: [
+          'req.headers.authorization',
+          'req.headers.cookie',
+          'res.headers["set-cookie"]'
+        ],
         remove: true
       }
     }
   });
 
+  // 🔐 Security headers
   await app.register(helmet, {
     contentSecurityPolicy: false
   });
 
+  // 🍪 Cookies
   await app.register(cookie, {
     secret: env.JWT_SECRET,
     hook: 'onRequest'
   });
 
+  // 🚦 Rate limiting
   await app.register(rateLimit, {
     max: 120,
     timeWindow: '1 minute',
@@ -123,27 +130,29 @@ export async function buildApp() {
     })
   });
 
-  // ✅ FIXED CORS CONFIG
+  // 🌐 ✅ FIXED CORS (WORKS WITH NETLIFY FRONTEND)
   await app.register(cors, {
     origin: (origin, callback) => {
-      // allow requests with no origin (mobile apps, curl, postman)
+      // Allow non-browser requests (Postman, curl)
       if (!origin) return callback(null, true);
 
-      // allow your frontend
-      if (env.FRONTEND_ORIGINS.includes(origin)) {
+      const allowedOrigins = [
+        'https://goldsmithss.netlify.app'
+      ];
+
+      if (allowedOrigins.includes(origin)) {
         return callback(null, true);
       }
 
-      // ❗ IMPORTANT: instead of throwing error, just block silently
+      // Block other origins silently
       return callback(null, false);
     },
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'], // ✅ REQUIRED
-    allowedHeaders: ['Content-Type', 'Authorization'],     // ✅ REQUIRED for JWT
-    credentials: true,
-    preflight: true,                                       // ✅ handle OPTIONS
-    optionsSuccessStatus: 204
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    credentials: true
   });
 
+  // 📦 File upload
   await app.register(multipart, {
     limits: {
       fileSize: 5 * 1024 * 1024,
@@ -151,17 +160,29 @@ export async function buildApp() {
     }
   });
 
+  // 🔑 JWT & Auth plugins
   await jwtPlugin(app);
   await authenticatePlugin(app);
+
+  // 🚀 Routes
   await registerRoutes(app);
 
+  // ❗ Global Error Handler
   app.setErrorHandler((error, request, reply) => {
-    const err = error as { statusCode?: number; message?: string; stack?: string };
+    const err = error as {
+      statusCode?: number;
+      message?: string;
+      stack?: string;
+    };
+
     request.log.error(err);
 
     if (env.NODE_ENV === 'production') {
       reply.status(err.statusCode || 500).send({
-        message: err.statusCode && err.statusCode < 500 ? err.message : 'Internal server error'
+        message:
+          err.statusCode && err.statusCode < 500
+            ? err.message
+            : 'Internal server error'
       });
       return;
     }
